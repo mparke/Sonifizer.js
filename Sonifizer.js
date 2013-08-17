@@ -3,108 +3,109 @@
 //---------------------------------------------
 //     http://www.Sonifizer.com/Sonifizer.js 
 //---------------------------------------------
-//                Andrew Madden
+//         Copyright Andrew Madden 2013
 //---------------------------------------------
+// 
+(function(window){
+  var base_url = 'http://sonifizer.com/api/';
 
-var Sonifizer_Base_URL = "http://www.Sonifizer.com";
+  var Sonifizer = function(options) {
+    options = options || {};
+    this._data = null;
+    this._src = null;
+    this._type = null;
+    this._seconds = 1;
 
-//---------------------------------------------
-// ************** URL API **************
-//---------------------------------------------
+    if(options.data) {
+      this.data(options.data);
+    }
 
-// Current TYPE supported: string
+    if(options.seconds) {
+      this.seconds(options.seconds);
+    }
+  };
 
-// var Sonifizer_Response_TYPE = "";
+  Sonifizer.prototype = {
+    
+    seconds: function(seconds) {
+      if(typeof seconds === 'number') {
+        this._seconds = seconds;
+      }else {
+        throw new TypeError('seconds must be a valid integer');
+      }
+    },
 
-// Sonifizer_Response_TYPE starts as an empty string
-// Calling any version of Sonifizer_TYPE, this variable will contain audio data
-// You can set Sonifizer_Response_TYPE as the src of any audio tag or call: Sonifizer_Play(Sonifizer_Response_TYPE)
- 
-// Sonifizer_TYPE(variable_of_TYPE)
-//  ... will load the converted audio into the variable Sonifizer_Response_TYPE
+    data: function(data) {
+      if(Array.isArray(data)) {
+          this._type = 'array';
+      }else if (typeof data === 'string') {
+          this._type = 'string';
+      }else {
+          throw new TypeError('options.data must be of type array or string');
+      }
 
-// Sonifizer_TYPE(variable_of_TYPE, callback)
-//  ... will load the converted audio into the variable Sonifizer_Response_TYPE
-//  ... and in 1000 milliseconds run the callback function on Sonifizer_Response_TYPE
+      this._data = data;
+      this._src = null;
+    },
 
-// Sonifizer_TYPE(variable_of_TYPE, callback, delay)
-//  ... will load the converted audio into the variable Sonifizer_Response_TYPE
-//  ... and in delay milliseconds run the callback function on Sonifizer_Response_TYPE
+    load: function(options) {
+      var me = this,
+        request, context, success, error, url;
 
-//  Example Call:  Sonifizer_TYPE('A_STRING_TO_LISTEN_TO', Sonifizer_Play, 1000)
+      if(this._data) {
+        request = new XMLHttpRequest();
+        context = options.context || window;
+        success = options.success || function(){}; //stub
+        error = options.error || function(){}; // stub
+
+        if(this._type === 'array') {
+          url = base_url + this._type;
+          request.open('POST', url);
+        }else {
+          url = base_url + this._type + '/' + this._data + '/json';
+          request.open('GET', url);
+        }
+        
+        request.onload = function() {
+          if(request.status === 200) {
+            me._src = request.responseText;
+            options.success.call(context, me._src);
+          }else {
+            options.error.call(context, 'An error occurred');
+          }
+        };
+
+        request.send({ data: this._data, seconds: this._seconds });
+      }else {
+        throw new Error('No data specified');
+      }
+    },
+
+    audio: function(options) {
+      options = options || {};
+
+      var doc = document,
+        audioEl = doc.createElement('audio'),
+        sourceEl = doc.createElement('source'),
+        src = options.src || this._src;
+
+      sourceEl.src = src;
+      audioEl.appendChild(sourceEl);
+      
+      for(var index in options) {
+        audioEl[index] = options[index];
+      }
+
+      return audioEl;
+    }
+  };
+
+  window.Sonifizer = Sonifizer;
+})(window);
 
 
-var Sonifizer_Response_string = "";
-  
-function Sonifizer_string(string, Sonifizer_Play, delay){
-
-    var _body = document.getElementsByTagName('body') [0];
-    var Sonifizer_Script = document.createElement('script');
-    Sonifizer_Script.type = "application/javascript";
-    Sonifizer_Script.src = Sonifizer_Base_URL+"/api/string/"+ string +"/json";
-    _body.appendChild(Sonifizer_Script);
-
-    var callback_function = callback || function(response){};
-    var callback_delay = delay || 1000;
-    setTimeout(function(){
-        callback_function(Sonifizer_Response_string);
-    }, callback_delay);
-
-}
 
 
-//---------------------------------------------
-// ************** Non-URL API **************
-//---------------------------------------------
-
-// Requires jQuery, specifically $.post()
 
 
-// Current TYPE supported: array
 
-// Sonifizer_Response_TYPE starts as an empty string
-// Calling any version of Sonifizer_TYPE, this variable will contain audio data
-// You can set Sonifizer_Response_TYPE as the scr of any audio tag or call: Sonifizer_Play(Sonifizer_Response_TYPE)
- 
-// Sonifizer_TYPE(variable_of_TYPE)
-//  ... will load the converted audio into the variable Sonifizer_Response_TYPE
-
-// Sonifizer_TYPE(variable_of_TYPE, callback)
-//  ... will load the converted audio into the variable Sonifizer_Response_TYPE
-//      ... and when successful, run the callback function on Sonifizer_Response_TYPE
-
-// Sonifizer_TYPE(variable_of_TYPE, callback, seconds)
-//  ... will load the converted audio into the variable Sonifizer_Response_TYPE
-//  ... it will return seconds of audio
-//      ... and when successful, run the callback function on Sonifizer_Response_TYPE
-
-//  Example Call:  Sonifizer_TYPE(variable_of_TYPE, Sonifizer_Play, 1)
-
-
-var Sonifizer_Response_array = "";
-
-function Sonifizer_array(data_array, callback, seconds){
-    var callback_function = callback || function(response){};
-    var audio_seconds = seconds || 1;
-    var url = Sonifizer_Base_URL+"/api/array";
-    $.post(url, {data: data_array, seconds: audio_seconds},
-    function(data){
-                callback_function(Sonifizer_Response_array);
-            });
-}
-
-//--------------------------------------------- 
-// ************** Helpers **************
-//---------------------------------------------
-
-// Create and autoplay an audio node with a Base64 audio src
-function Sonifizer_Play(Audio_Data_Base_64){
-    var _body = document.getElementsByTagName('body') [0];
-    var Sonifizer_audio = document.createElement('audio');
-    Sonifizer_audio.controls = false;
-    Sonifizer_audio.autoplay = true;
-    var Sonifizer_source = document.createElement('source');
-    Sonifizer_source.src = Audio_Data_Base_64;
-    Sonifizer_audio.appendChild(Sonifizer_source);
-    _body.appendChild(Sonifizer_audio);
-}
